@@ -1,0 +1,58 @@
+enum Status {
+    created
+    issued
+    activated
+}
+
+model User {
+    id            String    @id @unique @default(uuid())
+    name          String
+    email         String    @unique
+    passwwordHash String
+    role          String
+    accessToken   String    @db.Text
+    Events        Event[]
+    ScanLog       ScanLog[]
+}
+
+model Event {
+    id          String       @id @unique @default(uuid())
+    name        String
+    description String
+    date        DateTime
+    startsAt    DateTime
+    location    String
+    capacity    Int
+    organiserId String
+    organiser   User         @relation(fields: [organiserId], references: [id])
+    Tickets     Ticket[]
+    EeventStaff EventStaff[]
+}
+
+model Ticket {
+    id           String   @id @unique @default(uuid())
+    eventId      String
+    event        Event    @relation(fields: [eventId], references: [id])
+    userInitials String
+    status       Status   @default(created)
+    Activated    ScanLog?
+}
+
+model ScanLog {
+    id        String   @id @unique @default(uuid())
+    userId    String
+    user      User     @relation(fields: [userId], references: [id])
+    ticketId  String   @unique
+    ticket    Ticket   @relation(fields: [ticketId], references: [id])
+    scannedAt DateTime @default(now())
+}
+
+model EventStaff {
+    id      String @id @unique @default(uuid())
+    name          String
+    passwwordHash String
+    eventId String
+    event   Event  @relation(fields: [eventId], references: [id])
+    accessToken   String    @db.Text
+    role    String
+}
