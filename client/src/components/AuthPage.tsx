@@ -1,22 +1,18 @@
 import { useState, type FormEvent } from 'react';
 import { Shield, ArrowRight, CheckCircle2, Lock, Mail, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { setMemoryAccessToken } from '../api/axios';
 
 type AuthMode = 'login' | 'register';
 
-interface AuthPageProps {
-    onSuccess?: (token: string, user: { email: string; name?: string }) => void;
-}
-
-export default function AuthPage({ onSuccess }: AuthPageProps) {
+export default function AuthPage() {
     const navigate = useNavigate();
     const [mode, setMode] = useState<AuthMode>('login');
 
     // Поля форми
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [fullName, setFullName] = useState('');
-    const [orgName, setOrgName] = useState('');
+    const [name, setName] = useState('');
 
     // Стейт завантаження та помилок
     const [loading, setLoading] = useState(false);
@@ -26,11 +22,11 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
         e.preventDefault();
         setError(null);
         setLoading(true);
-        
-        const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
+
+        const endpoint = mode === 'login' ? '/auth/login' : '/auth/register';
         const payload = mode === 'login'
             ? { email, password }
-            : { email, password, fullName, orgName };
+            : { email, password, name };
 
         try {
             /* 
@@ -44,15 +40,21 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
               if (!res.ok) throw new Error(data.message || 'Помилка авторизації');
               if (onSuccess) onSuccess(data.token, data.user);
             */
-
-            // Демонстраційна затримка
-            await new Promise((resolve) => setTimeout(resolve, 600));
-
-            if (onSuccess) {
-                onSuccess('fake_jwt_token_123', { email, name: fullName || email.split('@')[0] });
+            const res = await fetch(`http://localhost:3000${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),                
+            });
+            const data = await res.json()
+            if (res.ok) {
+                setMemoryAccessToken(data.accessToken)
+                navigate('/dashboard')
             } else {
-                navigate('/dashboard'); 
+                const formatted = Object.values(data.message)
+                setError(formatted.join(" "))
             }
+
+
         } catch (err: any) {
             setError(err.message || 'Виникла помилка під час запиту');
         } finally {
@@ -139,7 +141,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                         {/* ERROR ALERT */}
                         {error && (
                             <div className="border border-black p-4 font-mono text-xs bg-neutral-100 text-black flex items-center justify-between">
-                                <span>ПОМИЛКА: {error}</span>
+                                <span>{error}</span>
                                 <button onClick={() => setError(null)} className="font-bold cursor-pointer">[Х]</button>
                             </div>
                         )}
@@ -158,24 +160,11 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                                                 type="text"
                                                 required
                                                 placeholder="Наприклад: Наконечний Орест Андрійович"
-                                                value={fullName}
-                                                onChange={(e) => setFullName(e.target.value)}
+                                                value={name}
+                                                onChange={(e) => setName(e.target.value)}
                                                 className="w-full border border-black pl-10 pr-4 py-3 text-sm font-sans focus:outline-none focus:ring-1 focus:ring-black"
                                             />
                                         </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-mono uppercase mb-2 font-bold">
-                                            Назва організації / Компанії
-                                        </label>
-                                        <input
-                                            type="text"
-                                            placeholder="Наприклад: Event Management Group"
-                                            value={orgName}
-                                            onChange={(e) => setOrgName(e.target.value)}
-                                            className="w-full border border-black px-4 py-3 text-sm font-sans focus:outline-none focus:ring-1 focus:ring-black"
-                                        />
                                     </div>
                                 </>
                             )}

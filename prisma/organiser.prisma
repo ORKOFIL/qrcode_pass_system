@@ -8,9 +8,9 @@ model User {
     id            String    @id @unique @default(uuid())
     name          String
     email         String    @unique
-    passwwordHash String
+    passwordHash String
     role          String
-    accessToken   String    @db.Text
+    refreshToken   String    @db.Text
     Events        Event[]
     ScanLog       ScanLog[]
 }
@@ -50,9 +50,9 @@ model ScanLog {
 model EventStaff {
     id      String @id @unique @default(uuid())
     name          String
-    passwwordHash String
+    passwordHash String
     eventId String
     event   Event  @relation(fields: [eventId], references: [id])
-    accessToken   String    @db.Text
+    refreshToken   String    @db.Text
     role    String
 }
