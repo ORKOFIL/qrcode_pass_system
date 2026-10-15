@@ -2,10 +2,14 @@ import { Router, type Request, type Response } from 'express';
 import { prisma } from '../lib/prisma.ts';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
-import z, { ZodEmail } from 'zod';
+import z, { email, object, ZodEmail } from 'zod';
 import { Prisma } from '@prisma/client';
 
 const router = Router();
+
+interface AuthenticatedRequest extends Request {
+    user?: { userEmail: string };
+}
 
 const registerSchema = z.object({
     email: z.email(),
@@ -22,7 +26,7 @@ async function getTokens(email: String) {
     const newAccessToken = jwt.sign(
         { userEmail: email },
         process.env.JWT_ACCESS_SECRET!,
-        { expiresIn: '15m' }
+        { expiresIn: '10s' }
     );
 
     const newRefreshToken = jwt.sign(
@@ -103,7 +107,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
             const { newAccessToken, newRefreshToken, newHashedRefreshToken } = await getTokens(email)
 
-            const updateUser = await prisma.user.update({
+            await prisma.user.update({
                 where: { email: email },
                 data: { refreshToken: newHashedRefreshToken },
             });
@@ -114,10 +118,63 @@ router.post('/login', async (req: Request, res: Response) => {
                 sameSite: 'lax',
                 maxAge: 7 * 24 * 60 * 60 * 1000,
             })
+            console.log('refreshed TOKENS')
             return res.status(200).json({ status: 200, accessToken: newAccessToken })
         } else {
             return res.status(400).json({ status: 400, message: { message: "Не коректно введені дані." } });
         }
+    } catch (error: any) {
+        console.error(error)
+        return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })
+    }
+});
+
+router.post('/refresh', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        console.log('/auth/refresh')
+
+        const oldRefreshToken = req.cookies.refreshToken
+        if (!oldRefreshToken) {
+            console.log('REFRESH TOKEN відсутній')
+            return res.status(401).json({ message: "REFRESH TOKEN відсутній" })
+        }
+
+        let decoded: { userEmail: string }
+        try {
+            decoded = jwt.verify(oldRefreshToken, process.env.JWT_REFRESH_SECRET!) as { userEmail: string }
+        } catch (error) {
+            return res.status(401).json({ message: "REFRESH TOKEN застарілий або недійсний" })
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: decoded.userEmail },
+        })
+
+        if (!user || !user.refreshToken) {
+            return res.status(401).json({ message: "Користувача не знайдено або сесію завершено" })
+        }
+
+        const isTokenValid = await argon2.verify(user.refreshToken, oldRefreshToken)
+        if (!isTokenValid) {
+            return res.status(403).json({ message: "Недійсний рефреш-токен" })
+        }
+        
+        const { newAccessToken, newRefreshToken, newHashedRefreshToken } = await getTokens(decoded.userEmail)
+
+        await prisma.user.update({
+            where: { email: decoded.userEmail },
+            data: { refreshToken: newHashedRefreshToken },
+        });
+
+        res.cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        })
+
+        return res.status(200).json({ status: 200, accessToken: newAccessToken })
+
     } catch (error: any) {
         console.error(error)
         return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })

@@ -29,19 +29,9 @@ export default function AuthPage() {
             : { email, password, name };
 
         try {
-            /* 
-              Приклад реального запиту до твоєї Express БД:
-              const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-              });
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.message || 'Помилка авторизації');
-              if (onSuccess) onSuccess(data.token, data.user);
-            */
             const res = await fetch(`http://localhost:3000${endpoint}`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),                
             });

@@ -21,8 +21,6 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// --- Далі йде той самий код черги з документації Axios ---
-
 let isRefreshing = false;
 let failedQueue: Array<{
     resolve: (token: string) => void;
@@ -46,6 +44,13 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
+        // --- КРИТИЧНО ВАЖЛИВИЙ ЗАХИСТ ВІД ЗАЦИКЛЕННЯ ---
+        // Якщо сам запит на рефреш повернув 401 (токен у куці протух/недійсний),
+        // ми не йдемо на повторне коло, а одразу падаємо в catch нижче.
+        if (originalRequest.url?.includes("/api/auth/refresh")) {
+            return Promise.reject(error);
+        }
+
         if (error.response?.status === 401 && !originalRequest._retry) {
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
@@ -62,12 +67,11 @@ api.interceptors.response.use(
             isRefreshing = true;
 
             try {
-                // ВИПРАВЛЕННЯ ТУТ: тіло пусте, бо рефреш-токен летить у HttpOnly куці самостійно!
-                const { data } = await api.post("/api/auth/refresh");
+                const { data } = await api.post("/auth/refresh");
 
                 const newToken = data.accessToken;
 
-                // Зберігаємо новий токен у пам'ять (замість localStorage!)
+                // Зберігаємо новий токен у пам'ять
                 setMemoryAccessToken(newToken);
 
                 processQueue(null, newToken);
@@ -80,7 +84,7 @@ api.interceptors.response.use(
 
                 // Очищаємо пам'ять і кидаємо на логін
                 setMemoryAccessToken(null);
-                window.location.href = "/login";
+                window.location.href = "/auth";
 
                 return Promise.reject(refreshError);
             } finally {

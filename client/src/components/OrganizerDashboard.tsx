@@ -1,21 +1,23 @@
 import React from 'react';
-import { useState} from 'react';
+import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { 
-  QrCode, 
-  LayoutDashboard, 
-  CheckCircle2, 
-  XCircle, 
-  ShieldCheck, 
-  Search, 
-  Plus, 
-  ArrowLeft, 
+import { setMemoryAccessToken } from '../api/axios';
+
+import {
+  QrCode,
+  LayoutDashboard,
+  CheckCircle2,
+  XCircle,
+  ShieldCheck,
+  Search,
+  Plus,
+  ArrowLeft,
   Calendar,
   Layers,
   ArrowUpRight
 } from 'lucide-react';
+import { api } from '../api/axios'
 
-// Типи
 type StatusType = 'створено' | 'видано' | 'використано';
 type TabType = 'dashboard' | 'qr-manager';
 
@@ -55,30 +57,30 @@ export default function OrganizerDashboard() {
 
   // Список QR-кодів для всіх івентів
   const [qrList, setQrList] = useState<QrItem[]>([
-    { 
-      id: 'qr_1', 
+    {
+      id: 'qr_1',
       eventId: 'ev_1',
-      code: 'EVT-2026-001', 
-      status: 'видано', 
-      fullName: 'Наконечний Орест Андрійович', 
+      code: 'EVT-2026-001',
+      status: 'видано',
+      fullName: 'Наконечний Орест Андрійович',
       birthDate: '14.05.2004',
       createdAt: '2026-10-11 10:00'
     },
-    { 
-      id: 'qr_2', 
+    {
+      id: 'qr_2',
       eventId: 'ev_1',
-      code: 'EVT-2026-002', 
-      status: 'використано', 
-      fullName: 'Шевченко Тарас Григорович', 
+      code: 'EVT-2026-002',
+      status: 'використано',
+      fullName: 'Шевченко Тарас Григорович',
       birthDate: '09.03.1814',
       createdAt: '2026-10-11 10:05'
     },
-    { 
-      id: 'qr_3', 
+    {
+      id: 'qr_3',
       eventId: 'ev_1',
-      code: 'EVT-2026-003', 
-      status: 'створено', 
-      fullName: '', 
+      code: 'EVT-2026-003',
+      status: 'створено',
+      fullName: '',
       birthDate: '',
       createdAt: '2026-10-11 10:10'
     },
@@ -93,10 +95,13 @@ export default function OrganizerDashboard() {
   const [tempBirthDate, setTempBirthDate] = useState<string>('');
 
   // Створення нового івенту (POST /api/events)
-  const handleCreateEvent = (e: FormEvent) => {
+  const handleCreateEvent = async (e: FormEvent) => {
     e.preventDefault();
     if (!newEventTitle) return;
 
+    //-------------------------------------------------------------
+    const data = await api.post('/event/create', { newEventTitle, newEventDate, newEventLocation, initialCount })
+    return
     const newId = 'ev_' + Date.now();
     const createdEvent: EventItem = {
       id: newId,
@@ -107,7 +112,7 @@ export default function OrganizerDashboard() {
     };
 
     setEvents([...events, createdEvent]);
-    
+
     // Генеруємо початкові QR коди для цього івенту
     const generatedQrs: QrItem[] = Array.from({ length: initialCount }, (_, index) => ({
       id: 'qr_' + Date.now() + '_' + index,
@@ -118,7 +123,8 @@ export default function OrganizerDashboard() {
       birthDate: '',
       createdAt: new Date().toISOString()
     }));
-
+    
+    //-------------------------------------------------------------
     setQrList([...qrList, ...generatedQrs]);
     setCurrentEvent(createdEvent);
 
@@ -129,7 +135,7 @@ export default function OrganizerDashboard() {
   };
 
   // Фільтрація QR кодів для поточного івенту
-  const currentEventQrList = currentEvent 
+  const currentEventQrList = currentEvent
     ? qrList.filter(q => q.eventId === currentEvent.id)
     : [];
 
@@ -177,16 +183,16 @@ export default function OrganizerDashboard() {
   // Збереження паспортних даних
   const savePassportData = () => {
     if (!modalItem) return;
-    setQrList(qrList.map(q => q.id === modalItem.id ? { 
-      ...q, 
-      status: 'видано', 
-      fullName: tempFullName, 
-      birthDate: tempBirthDate 
+    setQrList(qrList.map(q => q.id === modalItem.id ? {
+      ...q,
+      status: 'видано',
+      fullName: tempFullName,
+      birthDate: tempBirthDate
     } : q));
     setModalItem(null);
   };
 
-  const filteredQrList = currentEventQrList.filter(q => 
+  const filteredQrList = currentEventQrList.filter(q =>
     q.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
     q.fullName.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -199,9 +205,6 @@ export default function OrganizerDashboard() {
         <header className="w-full border-b border-black px-8 py-5 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <span className="font-mono text-sm tracking-widest uppercase font-bold">SYSTEM // EVENT MANAGER</span>
-          </div>
-          <div className="text-xs font-mono tracking-wider uppercase border border-black px-3 py-1">
-            ДЕРЖАВНИЙ КОНТРОЛЬ ДОСТУПУ
           </div>
         </header>
 
@@ -221,7 +224,7 @@ export default function OrganizerDashboard() {
                 </div>
               ) : (
                 events.map((ev) => (
-                  <div 
+                  <div
                     key={ev.id}
                     onClick={() => setCurrentEvent(ev)}
                     className="group border border-black p-6 hover:bg-black hover:text-white transition-all cursor-pointer flex items-center justify-between"
@@ -252,8 +255,8 @@ export default function OrganizerDashboard() {
               <form onSubmit={handleCreateEvent} className="space-y-5">
                 <div>
                   <label className="block text-xs font-mono uppercase mb-2">Назва події</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     required
                     placeholder="Наприклад: Закритий форум 2026"
                     value={newEventTitle}
@@ -265,8 +268,8 @@ export default function OrganizerDashboard() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-mono uppercase mb-2">Дата проведення</label>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={newEventDate}
                       onChange={(e) => setNewEventDate(e.target.value)}
                       className="w-full border border-black px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-black font-mono"
@@ -274,8 +277,8 @@ export default function OrganizerDashboard() {
                   </div>
                   <div>
                     <label className="block text-xs font-mono uppercase mb-2">Початкова кількість QR</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       min={1}
                       max={5000}
                       value={initialCount}
@@ -287,8 +290,8 @@ export default function OrganizerDashboard() {
 
                 <div>
                   <label className="block text-xs font-mono uppercase mb-2">Локація / Адреса</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Місто, локація"
                     value={newEventLocation}
                     onChange={(e) => setNewEventLocation(e.target.value)}
@@ -296,7 +299,7 @@ export default function OrganizerDashboard() {
                   />
                 </div>
 
-                <button 
+                <button
                   type="submit"
                   className="w-full py-4 bg-black text-white text-xs font-mono uppercase tracking-widest hover:bg-neutral-800 transition cursor-pointer mt-4 flex items-center justify-center space-x-2"
                 >
@@ -304,10 +307,6 @@ export default function OrganizerDashboard() {
                   <span>Ініціювати подію та згенерувати базу</span>
                 </button>
               </form>
-            </div>
-
-            <div className="mt-8 border-t border-black pt-4 text-xs font-mono text-neutral-500">
-              Ексклюзивна система контролю. Усі дані пишуться локально в базу даних Express.
             </div>
           </div>
         </main>
@@ -321,7 +320,7 @@ export default function OrganizerDashboard() {
       {/* HEADER WITH TABS */}
       <header className="w-full border-b border-black bg-white sticky top-0 z-40 px-8 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-6">
-          <button 
+          <button
             onClick={() => setCurrentEvent(null)}
             className="flex items-center space-x-2 border border-black px-3 py-1.5 text-xs font-mono uppercase hover:bg-black hover:text-white transition cursor-pointer"
           >
@@ -335,14 +334,14 @@ export default function OrganizerDashboard() {
           </div>
 
           <nav className="flex space-x-1 border-l border-black pl-6">
-            <button 
+            <button
               onClick={() => setActiveTab('dashboard')}
               className={`px-4 py-2 text-xs uppercase tracking-wider transition-all flex items-center space-x-2 font-mono ${activeTab === 'dashboard' ? 'bg-black text-white' : 'border border-transparent hover:border-black'}`}
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
               <span>CRM Аналітика</span>
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab('qr-manager')}
               className={`px-4 py-2 text-xs uppercase tracking-wider transition-all flex items-center space-x-2 font-mono ${activeTab === 'qr-manager' ? 'bg-black text-white' : 'border border-transparent hover:border-black'}`}
             >
@@ -447,9 +446,9 @@ export default function OrganizerDashboard() {
                 <form onSubmit={handleGenerateMore} className="space-y-4">
                   <div>
                     <label className="block text-[11px] font-mono uppercase mb-1">Кількість нових QR</label>
-                    <input 
-                      type="number" 
-                      min={1} 
+                    <input
+                      type="number"
+                      min={1}
                       max={500}
                       value={generateCount}
                       onChange={(e) => setGenerateCount(Number(e.target.value))}
@@ -471,11 +470,11 @@ export default function OrganizerDashboard() {
                 <h1 className="text-3xl font-light tracking-tight">Реєстр QR-кодів івенту</h1>
                 <p className="text-xs font-mono text-neutral-500 mt-1 uppercase">КЕРУВАННЯ СТАТУСАМИ ТА ПАСПОРТНИМИ ДАНИМИ</p>
               </div>
-              
+
               <div className="relative">
                 <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-3" />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="Пошук по коду або ПІБ..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -507,11 +506,10 @@ export default function OrganizerDashboard() {
                         <tr key={item.id} className="hover:bg-neutral-50 transition">
                           <td className="p-4 font-bold text-black">{item.code}</td>
                           <td className="p-4">
-                            <span className={`inline-block px-2.5 py-1 text-[10px] uppercase tracking-wider border ${
-                              item.status === 'створено' ? 'border-neutral-400 text-neutral-600 bg-white' :
+                            <span className={`inline-block px-2.5 py-1 text-[10px] uppercase tracking-wider border ${item.status === 'створено' ? 'border-neutral-400 text-neutral-600 bg-white' :
                               item.status === 'видано' ? 'border-black text-black bg-neutral-100 font-bold' :
-                              'border-black text-white bg-black font-bold'
-                            }`}>
+                                'border-black text-white bg-black font-bold'
+                              }`}>
                               {item.status}
                             </span>
                           </td>
@@ -522,7 +520,7 @@ export default function OrganizerDashboard() {
                             {item.birthDate || <span className="text-neutral-400 italic">-</span>}
                           </td>
                           <td className="p-4 text-right">
-                            <select 
+                            <select
                               value={item.status}
                               onChange={(e) => handleStatusChange(item.id, e.target.value as StatusType)}
                               className="border border-black px-3 py-1.5 text-xs font-mono bg-white cursor-pointer focus:outline-none"
@@ -563,8 +561,8 @@ export default function OrganizerDashboard() {
               </p>
               <div>
                 <label className="block uppercase mb-1 font-bold">ПІБ (Повне ім'я)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="Наприклад: Наконечний Орест Андрійович"
                   value={tempFullName}
                   onChange={(e) => setTempFullName(e.target.value)}
@@ -574,8 +572,8 @@ export default function OrganizerDashboard() {
 
               <div>
                 <label className="block uppercase mb-1 font-bold">Дата народження</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="ДД.ММ.РРРР (наприклад: 14.05.2004)"
                   value={tempBirthDate}
                   onChange={(e) => setTempBirthDate(e.target.value)}
@@ -585,13 +583,13 @@ export default function OrganizerDashboard() {
             </div>
 
             <div className="flex items-center justify-end space-x-3 pt-4 border-t border-black">
-              <button 
+              <button
                 onClick={() => setModalItem(null)}
                 className="px-4 py-2 border border-black text-xs uppercase font-mono hover:bg-neutral-100 transition cursor-pointer"
               >
                 Скасувати
               </button>
-              <button 
+              <button
                 onClick={savePassportData}
                 className="px-5 py-2 bg-black text-white text-xs uppercase font-mono tracking-wider hover:bg-neutral-800 transition cursor-pointer font-bold"
               >
