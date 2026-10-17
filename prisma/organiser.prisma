@@ -5,54 +5,52 @@ enum Status {
 }
 
 model User {
-    id            String    @id @unique @default(uuid())
-    name          String
-    email         String    @unique
+    id           String    @id @unique @default(uuid())
+    name         String
+    email        String    @unique
     passwordHash String
-    role          String
-    refreshToken   String    @db.Text
-    Events        Event[]
-    ScanLog       ScanLog[]
+    role         String
+    refreshToken String    @db.Text
+    Events       Event[]
+    ScanLog      ScanLog[]
 }
 
 model Event {
     id          String       @id @unique @default(uuid())
     name        String
-    description String
     date        DateTime
-    startsAt    DateTime
     location    String
-    capacity    Int
     organiserId String
-    organiser   User         @relation(fields: [organiserId], references: [id])
+    capacity    Int
+    organiser   User         @relation(fields: [organiserId], references: [id], onDelete: Cascade)
     Tickets     Ticket[]
     EeventStaff EventStaff[]
 }
 
 model Ticket {
-    id           String   @id @unique @default(uuid())
+    id           String    @id @unique
     eventId      String
-    event        Event    @relation(fields: [eventId], references: [id])
+    event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
     userInitials String
-    status       Status   @default(created)
-    Activated    ScanLog?
+    status       Status    @default(created)
+    scanLogs     ScanLog[]
 }
 
 model ScanLog {
     id        String   @id @unique @default(uuid())
     userId    String
-    user      User     @relation(fields: [userId], references: [id])
-    ticketId  String   @unique
-    ticket    Ticket   @relation(fields: [ticketId], references: [id])
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    ticketId  String
+    ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
     scannedAt DateTime @default(now())
 }
 
 model EventStaff {
-    id      String @id @unique @default(uuid())
-    name          String
+    id           String @id @unique @default(uuid())
+    name         String
     passwordHash String
-    eventId String
-    event   Event  @relation(fields: [eventId], references: [id])
-    refreshToken   String    @db.Text
-    role    String
+    eventId      String
+    event        Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+    refreshToken String @db.Text
+    role         String
 }

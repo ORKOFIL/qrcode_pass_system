@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { setMemoryAccessToken } from '../api/axios';
@@ -18,32 +18,33 @@ import {
 } from 'lucide-react';
 import { api } from '../api/axios'
 
-type StatusType = 'створено' | 'видано' | 'використано';
+type StatusType = 'created' | 'issued' | 'activated';
 type TabType = 'dashboard' | 'qr-manager';
 
 interface EventItem {
   id: string;
-  title: string;
+  name: string;
   date: string;
   location: string;
-  totalGenerated: number;
+  capacity: number;
 }
 
 interface QrItem {
   id: string;
   eventId: string;
-  code: string;
+  userInitials: string;
   status: StatusType;
-  fullName: string;
-  birthDate: string;
-  createdAt: string;
 }
+
+const statusPriority = {
+  created: 2,
+  issued: 1,
+  activated: 3
+};
 
 export default function OrganizerDashboard() {
   // Список івентів та поточний вибраний івент (null якщо на головній виборі подій)
-  const [events, setEvents] = useState<EventItem[]>([
-    { id: 'ev_1', title: 'Tech Conference Lviv 2026', date: '2026-11-15', location: 'Lviv Arena', totalGenerated: 150 }
-  ]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [currentEvent, setCurrentEvent] = useState<EventItem | null>(null);
 
   // Форма створення нового івенту
@@ -56,35 +57,7 @@ export default function OrganizerDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
 
   // Список QR-кодів для всіх івентів
-  const [qrList, setQrList] = useState<QrItem[]>([
-    {
-      id: 'qr_1',
-      eventId: 'ev_1',
-      code: 'EVT-2026-001',
-      status: 'видано',
-      fullName: 'Наконечний Орест Андрійович',
-      birthDate: '14.05.2004',
-      createdAt: '2026-10-11 10:00'
-    },
-    {
-      id: 'qr_2',
-      eventId: 'ev_1',
-      code: 'EVT-2026-002',
-      status: 'використано',
-      fullName: 'Шевченко Тарас Григорович',
-      birthDate: '09.03.1814',
-      createdAt: '2026-10-11 10:05'
-    },
-    {
-      id: 'qr_3',
-      eventId: 'ev_1',
-      code: 'EVT-2026-003',
-      status: 'створено',
-      fullName: '',
-      birthDate: '',
-      createdAt: '2026-10-11 10:10'
-    },
-  ]);
+  const [qrList, setQrList] = useState<QrItem[]>([]);
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [generateCount, setGenerateCount] = useState<number>(10);
@@ -92,40 +65,28 @@ export default function OrganizerDashboard() {
   // Модальне вікно паспортних даних
   const [modalItem, setModalItem] = useState<QrItem | null>(null);
   const [tempFullName, setTempFullName] = useState<string>('');
-  const [tempBirthDate, setTempBirthDate] = useState<string>('');
 
   // Створення нового івенту (POST /api/events)
   const handleCreateEvent = async (e: FormEvent) => {
     e.preventDefault();
     if (!newEventTitle) return;
 
-    //-------------------------------------------------------------
-    const data = await api.post('/event/create', { newEventTitle, newEventDate, newEventLocation, initialCount })
-    return
-    const newId = 'ev_' + Date.now();
+    const response = await api.post('/event/create', { newEventTitle, newEventDate, newEventLocation, initialCount })
+    const info = response.data.data
     const createdEvent: EventItem = {
-      id: newId,
-      title: newEventTitle,
-      date: newEventDate || '2026-12-01',
-      location: newEventLocation || 'Main Hall',
-      totalGenerated: initialCount
+      id: info.id,
+      name: info.name,
+      date: info.date,
+      location: info.location,
+      capacity: info.capacity
     };
-
     setEvents([...events, createdEvent]);
 
-    // Генеруємо початкові QR коди для цього івенту
-    const generatedQrs: QrItem[] = Array.from({ length: initialCount }, (_, index) => ({
-      id: 'qr_' + Date.now() + '_' + index,
-      eventId: newId,
-      code: `EVT-${newId.slice(-4)}-${String(index + 1).padStart(3, '0')}`,
-      status: 'створено',
-      fullName: '',
-      birthDate: '',
-      createdAt: new Date().toISOString()
-    }));
-    
-    //-------------------------------------------------------------
-    setQrList([...qrList, ...generatedQrs]);
+    const qr_response = await api.post('/event/create/qrcodes', { id: info.id, capacity: info.capacity, addon: false })
+
+    console.log(qr_response.data.qrcodes)
+
+    setQrList([...qrList, ...qr_response.data.qrcodes]);
     setCurrentEvent(createdEvent);
 
     // Очистка форми
@@ -142,60 +103,88 @@ export default function OrganizerDashboard() {
   // Статистика для поточного івенту
   const stats = {
     totalGenerated: currentEventQrList.length,
-    issued: currentEventQrList.filter(q => q.status === 'видано' || q.status === 'використано').length,
-    authorized: currentEventQrList.filter(q => q.status === 'використано').length,
-    notCame: currentEventQrList.filter(q => q.status === 'видано').length, // видані, але ще не використані на вході
+    issued: currentEventQrList.filter(q => q.status === 'issued' || q.status === 'activated').length,
+    authorized: currentEventQrList.filter(q => q.status === 'activated').length,
+    notCame: currentEventQrList.filter(q => q.status === 'issued').length,
   };
 
   // Генерація додаткових кодів
-  const handleGenerateMore = (e: FormEvent) => {
+  const handleGenerateMore = async (e: FormEvent) => {
     e.preventDefault();
     if (!currentEvent) return;
 
-    const newQrs: QrItem[] = Array.from({ length: generateCount }, (_, index) => ({
-      id: 'qr_' + Date.now() + '_' + index,
-      eventId: currentEvent.id,
-      code: `EVT-${currentEvent.id.slice(-4)}-${Date.now().toString().slice(-4)}_${index}`,
-      status: 'створено',
-      fullName: '',
-      birthDate: '',
-      createdAt: new Date().toISOString()
-    }));
-
-    setQrList([...qrList, ...newQrs]);
-    alert(`Згенеровано ${generateCount} нових QR-кодів для івенту "${currentEvent.title}".`);
+    const newQrs = await api.post('/event/create/qrcodes', { id: currentEvent.id, capacity: generateCount, addon: true })
+    setQrList([...qrList, ...newQrs.data.qrcodes]);
   };
 
   // Зміна статусу QR
-  const handleStatusChange = (id: string, newStatus: StatusType) => {
-    if (newStatus === 'видано') {
+  const handleStatusChange = async (id: string, newStatus: StatusType) => {
+    if (newStatus === 'issued') {
       const item = qrList.find(q => q.id === id);
       if (item) {
         setModalItem(item);
-        setTempFullName(item.fullName || '');
-        setTempBirthDate(item.birthDate || '');
+        setTempFullName(item.userInitials || '');
       }
     } else {
       setQrList(qrList.map(q => q.id === id ? { ...q, status: newStatus, fullName: '', birthDate: '' } : q));
+      await api.post(`/change/status/activated/${id}`)
     }
   };
 
-  // Збереження паспортних даних
-  const savePassportData = () => {
+  const savePassportData = async () => {
     if (!modalItem) return;
     setQrList(qrList.map(q => q.id === modalItem.id ? {
       ...q,
-      status: 'видано',
-      fullName: tempFullName,
-      birthDate: tempBirthDate
+      status: 'issued',
+      userInitials: tempFullName
     } : q));
     setModalItem(null);
+    await api.post(`/change/status/issued/${modalItem.id}`, { fullname: tempFullName })
   };
 
-  const filteredQrList = currentEventQrList.filter(q =>
-    q.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    q.fullName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleDeleteEvent = async () => {
+    if (!window.confirm('Ви впевнені, що хочете видалити цей івент? Усі пов’язані дані та квитки буде видалено.')) {
+      return;
+    }
+    try {
+      const res = await api.post(`/event/delete/${currentEvent?.id}`);
+
+      if (res.status === 500) {
+        alert('Не вдалось видалити івент');
+        return;
+      }
+
+      window.location.reload();
+    } catch (error) {
+      console.error('Помилка при видаленні:', error);
+      alert('Не вдалось видалити івент');
+    }
+  };
+
+  const filteredQrList = currentEventQrList
+    .filter((q) => {
+      const query = searchQuery.toLowerCase();
+      const matchesCode = q.id?.toLowerCase().includes(query);
+      const matchesInitials = q.userInitials?.toLowerCase().includes(query);
+
+      return matchesCode || matchesInitials;
+    })
+    .sort((a, b) => {
+      const priorityA = statusPriority[a.status] || 99;
+      const priorityB = statusPriority[b.status] || 99;
+
+      return priorityA - priorityB;
+    });
+
+  useEffect(() => {
+    async function loadData() {
+      const response = await api.get('/load/events')
+      console.log(response.data.events)
+      setEvents([...events, ...response.data.events])
+      setQrList([...qrList, ...response.data.tikets]);
+    }
+    loadData()
+  }, [])
 
   // ================= VIEW 1: SELECT OR CREATE EVENT =================
   if (!currentEvent) {
@@ -230,8 +219,8 @@ export default function OrganizerDashboard() {
                     className="group border border-black p-6 hover:bg-black hover:text-white transition-all cursor-pointer flex items-center justify-between"
                   >
                     <div>
-                      <div className="text-xs font-mono opacity-60 uppercase">ID: {ev.id} // {ev.date}</div>
-                      <div className="text-xl font-medium mt-1">{ev.title}</div>
+                      <div className="text-xs font-mono opacity-60 uppercase">ID: {ev.id} // {new Intl.DateTimeFormat('uk-UA').format(new Date(ev.date))}</div>
+                      <div className="text-xl font-medium mt-1">{ev.name}</div>
                       <div className="text-xs font-mono mt-2 opacity-85">ЛОКАЦІЯ: {ev.location}</div>
                     </div>
                     <div className="flex items-center space-x-2 font-mono text-xs uppercase tracking-wider border border-current px-4 py-2 group-hover:bg-white group-hover:text-black transition">
@@ -329,8 +318,7 @@ export default function OrganizerDashboard() {
           </button>
 
           <div className="flex items-center space-x-3 border-l border-black pl-6">
-            <span className="font-mono text-xs uppercase bg-black text-white px-2 py-1">АКТИВНИЙ ІВЕНТ</span>
-            <span className="font-medium text-sm">{currentEvent.title}</span>
+            <span className="font-medium text-sm">{currentEvent.name}</span>
           </div>
 
           <nav className="flex space-x-1 border-l border-black pl-6">
@@ -350,11 +338,6 @@ export default function OrganizerDashboard() {
             </button>
           </nav>
         </div>
-
-        <div className="flex items-center space-x-4 text-xs font-mono">
-          <span className="uppercase">БАЗА: ONLINE</span>
-          <span className="w-2.5 h-2.5 bg-black rounded-full"></span>
-        </div>
       </header>
 
       {/* MAIN CONTENT */}
@@ -368,7 +351,7 @@ export default function OrganizerDashboard() {
                 <p className="text-xs font-mono text-neutral-500 mt-1 uppercase">МОНІТОРИНГ АВТОРИЗАЦІЙ ТА ВІДВІДУВАНОСТІ В РЕАЛЬНОМУ ЧАСІ</p>
               </div>
               <div className="text-xs font-mono border border-black px-4 py-2 bg-neutral-50">
-                ЛОКАЦІЯ: {currentEvent.location} // ДАТА: {currentEvent.date}
+                ЛОКАЦІЯ: {currentEvent.location} // ДАТА: {new Intl.DateTimeFormat('uk-UA').format(new Date(currentEvent.date))}
               </div>
             </div>
 
@@ -378,13 +361,11 @@ export default function OrganizerDashboard() {
                 <div className="text-xs font-mono uppercase text-neutral-500">Всього згенеровано</div>
                 <div className="text-5xl font-light mt-4 font-mono">{stats.totalGenerated}</div>
                 <div className="mt-4 text-[11px] font-mono text-neutral-500 border-t border-neutral-200 pt-3 flex justify-between">
-                  <span>Статус ліміту</span>
-                  <span className="text-black font-bold">100%</span>
                 </div>
               </div>
 
               <div className="border border-black p-6 bg-white relative">
-                <div className="text-xs font-mono uppercase text-neutral-500">Видано квитків (з паспортом)</div>
+                <div className="text-xs font-mono uppercase text-neutral-500">Видано квитків</div>
                 <div className="text-5xl font-light mt-4 font-mono">{stats.issued}</div>
                 <div className="mt-4 text-[11px] font-mono text-neutral-500 border-t border-neutral-200 pt-3 flex justify-between">
                   <span>Частка від загальних</span>
@@ -395,7 +376,7 @@ export default function OrganizerDashboard() {
               <div className="border border-black p-6 bg-white relative">
                 <div className="text-xs font-mono uppercase text-black font-bold flex items-center space-x-1.5">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Авторизовано (Прийшли)</span>
+                  <span>Авторизовано</span>
                 </div>
                 <div className="text-5xl font-light mt-4 font-mono">{stats.authorized}</div>
                 <div className="mt-4 text-[11px] font-mono text-neutral-500 border-t border-neutral-200 pt-3 flex justify-between">
@@ -407,7 +388,7 @@ export default function OrganizerDashboard() {
               <div className="border border-black p-6 bg-white relative">
                 <div className="text-xs font-mono uppercase text-neutral-600 flex items-center space-x-1.5">
                   <XCircle className="w-4 h-4" />
-                  <span>Не прийшли (Пропуск)</span>
+                  <span>Не прийшли</span>
                 </div>
                 <div className="text-5xl font-light mt-4 font-mono">{stats.notCame}</div>
                 <div className="mt-4 text-[11px] font-mono text-neutral-500 border-t border-neutral-200 pt-3 flex justify-between">
@@ -422,14 +403,14 @@ export default function OrganizerDashboard() {
               <div className="lg:col-span-2 border border-black p-6 bg-white">
                 <h3 className="text-sm font-mono uppercase tracking-wider mb-4 border-b border-black pb-2">Останні успішні авторизації на вході</h3>
                 <div className="space-y-3 font-mono text-xs">
-                  {currentEventQrList.filter(q => q.status === 'використано').length === 0 ? (
+                  {currentEventQrList.filter(q => q.status === 'activated').length === 0 ? (
                     <div className="text-neutral-500 py-4 italic">Ще жоден код не було використано на контролі.</div>
                   ) : (
-                    currentEventQrList.filter(q => q.status === 'використано').map((item, idx) => (
+                    currentEventQrList.filter(q => q.status === 'activated').map((item, idx) => (
                       <div key={idx} className="flex items-center justify-between p-3 border border-neutral-300 bg-neutral-50">
                         <div className="flex items-center space-x-4">
-                          <span className="font-bold">{item.code}</span>
-                          <span className="text-neutral-700">{item.fullName} ({item.birthDate})</span>
+                          <span className="font-bold">{item.id}</span>
+                          <span className="text-neutral-700">{item.userInitials}</span>
                         </div>
                         <span className="border border-black px-2 py-0.5 text-[10px] uppercase bg-black text-white">Успішно пройдено</span>
                       </div>
@@ -438,27 +419,38 @@ export default function OrganizerDashboard() {
                 </div>
               </div>
 
-              <div className="border border-black p-6 bg-white flex flex-col justify-between">
+              <div className="border border-black p-6 bg-white flex flex-col justify-between space-y-6">
                 <div>
                   <h3 className="text-sm font-mono uppercase tracking-wider mb-2 border-b border-black pb-2">Додати квитки</h3>
                   <p className="text-xs font-mono text-neutral-500 mb-4">Згенерувати додаткову партію кодів для цього івенту.</p>
+
+                  <form onSubmit={handleGenerateMore} className="space-y-4">
+                    <div>
+                      <label className="block text-[11px] font-mono uppercase mb-1">Кількість нових QR</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={500}
+                        value={generateCount}
+                        onChange={(e) => setGenerateCount(Number(e.target.value))}
+                        className="w-full border border-black px-3 py-2 text-sm font-mono focus:outline-none"
+                      />
+                    </div>
+                    <button type="submit" className="w-full py-3 bg-black text-white text-xs font-mono uppercase tracking-wider hover:bg-neutral-800 transition cursor-pointer">
+                      Згенерувати в базу
+                    </button>
+                  </form>
                 </div>
-                <form onSubmit={handleGenerateMore} className="space-y-4">
-                  <div>
-                    <label className="block text-[11px] font-mono uppercase mb-1">Кількість нових QR</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={500}
-                      value={generateCount}
-                      onChange={(e) => setGenerateCount(Number(e.target.value))}
-                      className="w-full border border-black px-3 py-2 text-sm font-mono focus:outline-none"
-                    />
-                  </div>
-                  <button type="submit" className="w-full py-3 bg-black text-white text-xs font-mono uppercase tracking-wider hover:bg-neutral-800 transition cursor-pointer">
-                    Згенерувати в базу
+
+                {/* Кнопка всередині правої картки */}
+                <div className="pt-4 border-t border-neutral-200">
+                  <button
+                    onClick={() => handleDeleteEvent()}
+                    className="w-full py-3 px-4 border border-red-600 text-red-600 font-mono font-bold uppercase tracking-wider text-xs bg-white hover:bg-red-600 hover:text-white transition duration-200 cursor-pointer"
+                  >
+                    Видалити івент
                   </button>
-                </form>
+                </div>
               </div>
             </div>
           </div>
@@ -490,9 +482,9 @@ export default function OrganizerDashboard() {
                   <thead>
                     <tr className="border-b border-black bg-neutral-100 uppercase text-neutral-600">
                       <th className="p-4">Унікальний код</th>
+                      <th className="p-4">QR-CODE</th>
                       <th className="p-4">Статус</th>
-                      <th className="p-4">ПІБ (як в паспорті)</th>
-                      <th className="p-4">Дата народження</th>
+                      <th className="p-4">ПІБ</th>
                       <th className="p-4 text-right">Зміна статусу / Дані</th>
                     </tr>
                   </thead>
@@ -504,20 +496,36 @@ export default function OrganizerDashboard() {
                     ) : (
                       filteredQrList.map((item) => (
                         <tr key={item.id} className="hover:bg-neutral-50 transition">
-                          <td className="p-4 font-bold text-black">{item.code}</td>
+                          <td className="p-4 font-bold text-black">{item.id}</td>
+
+                          {/* Колонка з QR-кодом та кнопкою завантаження */}
                           <td className="p-4">
-                            <span className={`inline-block px-2.5 py-1 text-[10px] uppercase tracking-wider border ${item.status === 'створено' ? 'border-neutral-400 text-neutral-600 bg-white' :
-                              item.status === 'видано' ? 'border-black text-black bg-neutral-100 font-bold' :
+                            <div className="flex items-center gap-3">
+
+                              <a
+                                href={`http://localhost:3000/qrcodes/${currentEvent.id}/${item.id}.png`}
+                                download={`${item.id}.png`}
+                                className="text-xs text-neutral-600 hover:text-black underline transition"
+                              >
+                                <img
+                                  src={`http://localhost:3000/qrcodes/${currentEvent.id}/${item.id}.png`}
+                                  alt={`QR ${item.id}`}
+                                  className="w-20 h-20 object-contain border border-neutral-300 bg-white p-0.5"
+                                />
+                              </a>
+                            </div>
+                          </td>
+
+                          <td className="p-4">
+                            <span className={`inline-block px-2.5 py-1 text-[10px] uppercase tracking-wider border ${item.status === 'created' ? 'border-neutral-400 text-neutral-600 bg-white' :
+                              item.status === 'issued' ? 'border-black text-black bg-neutral-100 font-bold' :
                                 'border-black text-white bg-black font-bold'
                               }`}>
                               {item.status}
                             </span>
                           </td>
                           <td className="p-4 text-neutral-800">
-                            {item.fullName || <span className="text-neutral-400 italic">не вказано</span>}
-                          </td>
-                          <td className="p-4 text-neutral-800">
-                            {item.birthDate || <span className="text-neutral-400 italic">-</span>}
+                            {item.userInitials || <span className="text-neutral-400 italic">не вказано</span>}
                           </td>
                           <td className="p-4 text-right">
                             <select
@@ -525,9 +533,9 @@ export default function OrganizerDashboard() {
                               onChange={(e) => handleStatusChange(item.id, e.target.value as StatusType)}
                               className="border border-black px-3 py-1.5 text-xs font-mono bg-white cursor-pointer focus:outline-none"
                             >
-                              <option value="створено">створено</option>
-                              <option value="видано">видано (ввести ПІБ)</option>
-                              <option value="використано">використано (прийшов)</option>
+                              <option value="created">створено</option>
+                              <option value="issued">видано</option>
+                              <option value="activated">використано</option>
                             </select>
                           </td>
                         </tr>
@@ -557,27 +565,16 @@ export default function OrganizerDashboard() {
 
             <div className="space-y-4 font-mono text-xs">
               <p className="text-neutral-600">
-                Код квитка: <span className="text-black font-bold">{modalItem.code}</span>. Введіть дані суворо за документами:
+                Код квитка: <span className="text-black font-bold">{modalItem.id}</span>. Введіть дані суворо за документами:
               </p>
               <div>
-                <label className="block uppercase mb-1 font-bold">ПІБ (Повне ім'я)</label>
+                <label className="block uppercase mb-1 font-bold">ПІБ</label>
                 <input
                   type="text"
                   placeholder="Наприклад: Наконечний Орест Андрійович"
                   value={tempFullName}
                   onChange={(e) => setTempFullName(e.target.value)}
                   className="w-full border border-black px-3 py-2.5 text-xs font-sans focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block uppercase mb-1 font-bold">Дата народження</label>
-                <input
-                  type="text"
-                  placeholder="ДД.ММ.РРРР (наприклад: 14.05.2004)"
-                  value={tempBirthDate}
-                  onChange={(e) => setTempBirthDate(e.target.value)}
-                  className="w-full border border-black px-3 py-2.5 text-xs font-mono focus:outline-none"
                 />
               </div>
             </div>

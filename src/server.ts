@@ -7,7 +7,10 @@ import jwt from 'jsonwebtoken';
 import z from 'zod';
 import { Prisma } from '@prisma/client';
 import authRouter from './routers/auth.ts'
+import eventRouter from './routers/event.ts'
+import changeStatusRouter from './routers/change_status.ts'
 import cookieParser from "cookie-parser";
+import path from 'path';
 
 const app = express();
 app.use(cors({
@@ -19,6 +22,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(cookieParser());
+app.use('/qrcodes', express.static(path.join(process.cwd(), 'qrcodes')));
 
 interface AuthenticatedRequest extends Request {
     user?: { userEmail: string };
@@ -47,12 +51,41 @@ app.use('/auth', authRouter);
 
 app.use(requestTime);
 
-app.post('/event/create', async (req: AuthenticatedRequest, res: Response) => {
+app.use('/event', eventRouter);
+app.use('/change/status', changeStatusRouter);
+
+app.get('/load/events', async (req: AuthenticatedRequest, res: Response) => {
     try {
-        console.log('/event/create')
-        const { newEventTitle: title, newEventDate: date, newEventLocation: location, initialCount: count } = req.body
-        console.log(title)
-        console.log(req.user?.userEmail)
+        console.log('/loaddata')
+        const useremail = req.user?.userEmail
+        if (!useremail) {
+            return res.status(400).json({ status: 400, message: 'Відсутня емейл' });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: useremail },
+        })
+
+        if (!user || !user.id) {
+            return res.status(400).json({ status: 400, message: 'Відсутнє id' });
+        }
+
+        console.log(user.id)
+
+        const events = await prisma.event.findMany({
+            where: { organiserId: user.id }
+        })
+
+        const eventIds = events.map(item => item.id)
+        const eventTikets = await prisma.ticket.findMany({
+            where: {
+                eventId: {
+                    in: eventIds
+                }
+            }
+        })
+
+        return res.status(201).json({ status: 201, events: events, tikets: eventTikets });
     } catch (error) {
         console.error(error)
         return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })

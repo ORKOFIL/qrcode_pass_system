@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { prisma } from '../lib/prisma.ts';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
-import z, { email, object, ZodEmail } from 'zod';
+import z from 'zod';
 import { Prisma } from '@prisma/client';
 
 const router = Router();
@@ -26,7 +26,7 @@ async function getTokens(email: String) {
     const newAccessToken = jwt.sign(
         { userEmail: email },
         process.env.JWT_ACCESS_SECRET!,
-        { expiresIn: '10s' }
+        { expiresIn: '15m' }
     );
 
     const newRefreshToken = jwt.sign(
@@ -54,7 +54,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
             const hashedPass = await argon2.hash(password)
 
-            const newUser = await prisma.user.create({
+            await prisma.user.create({
                 data: {
                     email,
                     passwordHash: hashedPass,
@@ -63,9 +63,6 @@ router.post('/register', async (req: Request, res: Response) => {
                     refreshToken: newHashedRefreshToken
                 }
             })
-            if (!newUser) {
-                console.log("error")
-            }
             res.cookie('refreshToken', newRefreshToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
@@ -118,7 +115,6 @@ router.post('/login', async (req: Request, res: Response) => {
                 sameSite: 'lax',
                 maxAge: 7 * 24 * 60 * 60 * 1000,
             })
-            console.log('refreshed TOKENS')
             return res.status(200).json({ status: 200, accessToken: newAccessToken })
         } else {
             return res.status(400).json({ status: 400, message: { message: "Не коректно введені дані." } });
@@ -158,7 +154,7 @@ router.post('/refresh', async (req: AuthenticatedRequest, res: Response) => {
         if (!isTokenValid) {
             return res.status(403).json({ message: "Недійсний рефреш-токен" })
         }
-        
+
         const { newAccessToken, newRefreshToken, newHashedRefreshToken } = await getTokens(decoded.userEmail)
 
         await prisma.user.update({
