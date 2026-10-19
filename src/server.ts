@@ -55,7 +55,7 @@ app.get('/ticket/:ticketId', async (req: AuthenticatedRequest, res: Response) =>
             status: tiket.status
         }]
 
-        return res.status(201).json({ status: 201, tiketInfo: data });
+        return res.status(200).json({ status: 200, tiketInfo: data });
     } catch (error) {
         console.error(error)
         return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })
@@ -69,7 +69,6 @@ app.use('/change/status', changeStatusRouter);
 
 app.get('/load/events', async (req: AuthenticatedRequest, res: Response) => {
     try {
-        console.log('/loaddata')
         const useremail = req.user?.userEmail
         if (!useremail) {
             return res.status(400).json({ status: 400, message: 'Відсутня емейл' });
@@ -82,9 +81,6 @@ app.get('/load/events', async (req: AuthenticatedRequest, res: Response) => {
         if (!user || !user.id) {
             return res.status(400).json({ status: 400, message: 'Відсутнє id' });
         }
-
-        console.log(user.id)
-
         const events = await prisma.event.findMany({
             where: { organiserId: user.id }
         })
@@ -106,7 +102,7 @@ app.get('/load/events', async (req: AuthenticatedRequest, res: Response) => {
             }
         })
 
-        return res.status(201).json({ status: 201, events: events, tikets: eventTikets, staff: eventScanners });
+        return res.status(200).json({ status: 200, events: events, tikets: eventTikets, staff: eventScanners });
     } catch (error) {
         console.error(error)
         return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })
@@ -115,8 +111,6 @@ app.get('/load/events', async (req: AuthenticatedRequest, res: Response) => {
 
 app.post('/ticket/:ticketId/activate', async (req: AuthenticatedRequest, res: Response) => {
     try {
-        console.log('can activate')
-        console.log(req.user?.userEmail)
         const { ticketId } = req.params
 
         const staff = await prisma.eventStaff.findUnique({
@@ -125,9 +119,10 @@ app.post('/ticket/:ticketId/activate', async (req: AuthenticatedRequest, res: Re
         const ticket = await prisma.ticket.findUnique({
             where: { id: String(ticketId) }
         })
-        console.log(staff?.eventId)
-        console.log(ticket?.eventId)
         if (staff?.eventId === ticket?.eventId) {
+            if(ticket?.status=='activated'){
+                return res.status(409).json({ status: 409, message: "Квиток вже був активований раніше" })
+            }
             await prisma.ticket.update({
                 where: { id: String(ticketId) },
                 data: { status: 'activated' }

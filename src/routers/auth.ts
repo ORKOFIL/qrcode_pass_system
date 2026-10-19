@@ -63,7 +63,6 @@ router.post('/register', async (req: Request, res: Response) => {
             password,
         })
         if (result.success) {
-            console.log(result.data)
 
             const { newAccessToken, newRefreshToken, newHashedRefreshToken } = await getTokens(email)
 
@@ -142,11 +141,9 @@ router.post('/login', async (req: Request, res: Response) => {
 
 router.post('/refresh', async (req: AuthenticatedRequest, res: Response) => {
     try {
-        console.log('/auth/refresh')
-
         const oldRefreshToken = req.cookies.refreshToken
         if (!oldRefreshToken) {
-            console.log('REFRESH TOKEN відсутній')
+            console.error('REFRESH TOKEN відсутній')
             return res.status(500).json({ message: "REFRESH TOKEN відсутній" })
         }
 
@@ -252,15 +249,18 @@ router.post('/logout', async (req: AuthenticatedRequest, res: Response) => {
         const refreshToken = req.cookies.refreshToken;
 
         if (refreshToken) {
-            await prisma.user.updateMany({
-                where: { refreshToken: refreshToken },
-                data: { refreshToken: '' },
-            });
-
-            await prisma.eventStaff.updateMany({
-                where: { refreshToken: refreshToken },
-                data: { refreshToken: '' },
-            });
+            const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET!) as { userEmail: string; isStaff: boolean | undefined };
+            if (decoded.isStaff == undefined) {
+                await prisma.user.update({
+                    where: { email: decoded.userEmail },
+                    data: { refreshToken: '' },
+                });
+            } else {
+                await prisma.eventStaff.update({
+                    where: { name: decoded.userEmail },
+                    data: { refreshToken: '' },
+                });
+            }
         }
 
         res.clearCookie('refreshToken', {
