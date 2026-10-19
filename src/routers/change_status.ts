@@ -24,14 +24,21 @@ router.post('/issued/:id', async (req: AuthenticatedRequest, res: Response) => {
     }
 })
 
-router.post('/activated/:id', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/:status/:id', async (req: AuthenticatedRequest, res: Response) => {
     try {
-        const { id } = req.params;
-        
-        await prisma.ticket.update({
-            where: { id: String(id) },
-            data: { status: 'activated' }
-        })
+        const { status, id } = req.params;
+        let curstatus;
+        if (status === 'activated') {
+            await prisma.ticket.update({
+                where: { id: String(id) },
+                data: { status: 'activated' }
+            })
+        } else {
+            await prisma.ticket.update({
+                where: { id: String(id) },
+                data: { status: 'created' }
+            })
+        }
 
         return res.status(201).json({ status: 201 });
     } catch (error) {

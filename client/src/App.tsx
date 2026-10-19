@@ -1,9 +1,11 @@
 
-import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-
-import OrganizerDashboard from './components/OrganizerDashboard';
-import AuthPage from './components/AuthPage';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import OrganizerDashboard from './routes/OrganizerDashboard';
+import AuthPage from './routes/AuthPage';
+import { TicketValidation } from './routes/TiketPage';
+import { StaffLogin } from './routes/StaffAuth';
+import { StaffSuccessPage } from './routes/SuccessAuth';
+import { NotFoundPage } from './routes/NotFoundPage';
 
 export default function App() {
     return (
@@ -13,7 +15,10 @@ export default function App() {
                     <Routes>
                         <Route path="/dashboard" element={<OrganizerDashboard />} />
                         <Route path="/auth" element={<AuthPage />} />
-                        <Route path="*" element={<h2 className="text-xl text-white font-bold">404 - Сторінку не знайдено</h2>} />
+                        <Route path="/:ticketId" element={<TicketValidation />} />
+                        <Route path="/auth/staff" element={<StaffLogin />} />
+                        <Route path="/auth/staff/success" element={<StaffSuccessPage />} />
+                        <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                 </main>
             </div>

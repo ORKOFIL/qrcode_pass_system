@@ -4,6 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 import * as QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
+import argon2 from 'argon2';
+import { nanoid } from 'nanoid';
+import jwt from 'jsonwebtoken';
 
 const router = Router();
 
@@ -121,5 +124,69 @@ router.post('/delete/:id', async (req: AuthenticatedRequest, res: Response) => {
         return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })
     }
 })
+//avalanche meeting-1EQ_gq
+//p2NJ9KbLNU
+
+//816b402f-4882-4b0f-854b-f38fbc31f4a9
+router.post('/:eventId/scanners/create', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        console.log('/:eventId/scanners/create')
+        const { eventId } = req.params;
+        const { count } = req.body;
+
+        console.log(eventId)
+        const event = await prisma.event.findUnique({
+            where: { id: String(eventId) }
+        });
+
+        if (!event) {
+            return res.status(404).json({ message: 'Івент не знайдено' });
+        }
+
+        const newScannersData = [];
+        for (let i = 1; i <= Number(count); i++) {
+            const staffName = `${event.name}-${i}${nanoid(5)}`;
+            const newRefreshToken = jwt.sign(
+                { userEmail: staffName, isStaff: true },
+                process.env.JWT_REFRESH_SECRET!,
+                { expiresIn: '7d' }
+            );
+            const newHashedRefreshToken = await argon2.hash(newRefreshToken)
+
+            newScannersData.push({
+                eventId: String(eventId),
+                name: staffName,
+                passwordHash: nanoid(10),
+                refreshToken: newHashedRefreshToken
+            });
+        }
+
+        const ScannersData = await prisma.eventStaff.createManyAndReturn({
+            data: newScannersData
+        });
+
+        return res.status(201).json({ scanners: ScannersData });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Помилка сервера' });
+    }
+});
+
+router.post('/scanner/delete/:scannerId', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const { scannerId } = req.params
+        const deleted = await prisma.eventStaff.deleteMany({
+            where: { id: String(scannerId) }
+        })
+        if (deleted.count === 0) {
+            console.error('Сканувальника не знайдено');
+            return res.status(404).json({ message: 'Сканувальника не знайдено' });
+        }
+        return res.status(201).json({ message: 'Сканувальники успішно створені' });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Помилка сервера' });
+    }
+});
 
 export default router;

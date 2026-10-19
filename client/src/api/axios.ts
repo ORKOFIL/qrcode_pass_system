@@ -13,6 +13,7 @@ export const setMemoryAccessToken = (token: string | null) => {
     memoryAccessToken = token;
 };
 
+
 // 2. REQUEST INTERCEPTOR: додаємо токен до кожного вихідного запиту
 api.interceptors.request.use((config) => {
     if (memoryAccessToken) {
@@ -84,7 +85,13 @@ api.interceptors.response.use(
 
                 // Очищаємо пам'ять і кидаємо на логін
                 setMemoryAccessToken(null);
-                window.location.href = "/auth";
+
+                const currentPath = window.location.pathname;
+                const isTicketPage = /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentPath);
+                if (isTicketPage) {
+                }else{
+                    window.location.href = "/auth";
+                }
 
                 return Promise.reject(refreshError);
             } finally {

@@ -47,10 +47,9 @@ model ScanLog {
 
 model EventStaff {
     id           String @id @unique @default(uuid())
-    name         String
+    name         String @unique
     passwordHash String
     eventId      String
     event        Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
     refreshToken String @db.Text
-    role         String
 }

@@ -4,13 +4,14 @@ import { prisma } from './lib/prisma.ts';
 import cors from 'cors';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
-import z from 'zod';
+import z, { string } from 'zod';
 import { Prisma } from '@prisma/client';
 import authRouter from './routers/auth.ts'
 import eventRouter from './routers/event.ts'
 import changeStatusRouter from './routers/change_status.ts'
 import cookieParser from "cookie-parser";
 import path from 'path';
+import { middleware } from './lib/middleware.ts';
 
 const app = express();
 app.use(cors({
@@ -28,28 +29,40 @@ interface AuthenticatedRequest extends Request {
     user?: { userEmail: string };
 }
 
-const requestTime = function (req: AuthenticatedRequest, res: Response, next: NextFunction) {
-    console.log('middleware')
-    const authHeader = req.headers.authorization
-    if (!authHeader) {
-        console.log("Токен відсутній")
-        return res.status(401).json({ message: "Токен відсутній" });
-    }
-    const token = authHeader!.split(' ')[1];
-    try {
-        const decoded = jwt.verify(token!, process.env.JWT_ACCESS_SECRET!) as { userEmail: string }
-        req.user = decoded
-        console.log(decoded.userEmail)
-        next();
-    } catch (error) {
-        console.log("Токен невірний або застарілий")
-        return res.status(401).json({ message: "Токен невірний або застарілий" });
-    }
-};
-
 app.use('/auth', authRouter);
 
-app.use(requestTime);
+app.get('/ticket/:ticketId', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const { ticketId } = req.params
+        const tiket = await prisma.ticket.findUnique({
+            where: { id: String(ticketId) }
+        })
+        if (!tiket) {
+            return res.status(400).json({ status: 400, message: 'Відсутній квиток' });
+        }
+        const event = await prisma.event.findUnique({
+            where: { id: String(tiket.eventId) }
+        })
+        if (!event) {
+            return res.status(400).json({ status: 400, message: 'Відсутній івент' });
+        }
+
+        const data = [{
+            id: tiket.id,
+            eventName: event.name,
+            eventDate: event.date,
+            userInitials: tiket.userInitials || '',
+            status: tiket.status
+        }]
+
+        return res.status(201).json({ status: 201, tiketInfo: data });
+    } catch (error) {
+        console.error(error)
+        return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })
+    }
+})
+
+app.use(middleware);
 
 app.use('/event', eventRouter);
 app.use('/change/status', changeStatusRouter);
@@ -85,7 +98,44 @@ app.get('/load/events', async (req: AuthenticatedRequest, res: Response) => {
             }
         })
 
-        return res.status(201).json({ status: 201, events: events, tikets: eventTikets });
+        const eventScanners = await prisma.eventStaff.findMany({
+            where: {
+                eventId: {
+                    in: eventIds
+                }
+            }
+        })
+
+        return res.status(201).json({ status: 201, events: events, tikets: eventTikets, staff: eventScanners });
+    } catch (error) {
+        console.error(error)
+        return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })
+    }
+})
+
+app.post('/ticket/:ticketId/activate', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        console.log('can activate')
+        console.log(req.user?.userEmail)
+        const { ticketId } = req.params
+
+        const staff = await prisma.eventStaff.findUnique({
+            where: { name: String(req.user?.userEmail) }
+        })
+        const ticket = await prisma.ticket.findUnique({
+            where: { id: String(ticketId) }
+        })
+        console.log(staff?.eventId)
+        console.log(ticket?.eventId)
+        if (staff?.eventId === ticket?.eventId) {
+            await prisma.ticket.update({
+                where: { id: String(ticketId) },
+                data: { status: 'activated' }
+            })
+            return res.json({ status: 201 });
+        } else {
+            return res.status(403).json({ status: 403, message: "Вам дано доступ до іншого івенту" })
+        }
     } catch (error) {
         console.error(error)
         return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })

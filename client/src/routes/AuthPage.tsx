@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Shield, ArrowRight, CheckCircle2, Lock, Mail, User } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Lock, Mail, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { setMemoryAccessToken } from '../api/axios';
 

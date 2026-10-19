@@ -37,6 +37,21 @@ async function getTokens(email: String) {
     const newHashedRefreshToken = await argon2.hash(newRefreshToken)
     return { newAccessToken, newRefreshToken, newHashedRefreshToken }
 }
+async function getTokensStaff(email: String) {
+    const newAccessToken = jwt.sign(
+        { userEmail: email, isStaff: true },
+        process.env.JWT_ACCESS_SECRET!,
+        { expiresIn: '15m' }
+    );
+
+    const newRefreshToken = jwt.sign(
+        { userEmail: email, isStaff: true },
+        process.env.JWT_REFRESH_SECRET!,
+        { expiresIn: '7d' }
+    );
+    const newHashedRefreshToken = await argon2.hash(newRefreshToken)
+    return { newAccessToken, newRefreshToken, newHashedRefreshToken }
+}
 
 router.post('/register', async (req: Request, res: Response) => {
     try {
@@ -132,33 +147,90 @@ router.post('/refresh', async (req: AuthenticatedRequest, res: Response) => {
         const oldRefreshToken = req.cookies.refreshToken
         if (!oldRefreshToken) {
             console.log('REFRESH TOKEN відсутній')
-            return res.status(401).json({ message: "REFRESH TOKEN відсутній" })
+            return res.status(500).json({ message: "REFRESH TOKEN відсутній" })
         }
 
-        let decoded: { userEmail: string }
+        let decoded: { userEmail: string, isStaff: boolean | undefined }
         try {
-            decoded = jwt.verify(oldRefreshToken, process.env.JWT_REFRESH_SECRET!) as { userEmail: string }
+            decoded = jwt.verify(oldRefreshToken, process.env.JWT_REFRESH_SECRET!) as { userEmail: string, isStaff: boolean | undefined }
         } catch (error) {
-            return res.status(401).json({ message: "REFRESH TOKEN застарілий або недійсний" })
+            return res.status(500).json({ message: "REFRESH TOKEN застарілий або недійсний" })
         }
 
-        const user = await prisma.user.findUnique({
-            where: { email: decoded.userEmail },
-        })
+        let user;
+        if (decoded.isStaff == undefined) {
+            user = await prisma.user.findUnique({
+                where: { email: decoded.userEmail },
+            })
+        } else {
+            user = await prisma.eventStaff.findUnique({
+                where: { name: decoded.userEmail },
+            })
+        }
 
         if (!user || !user.refreshToken) {
-            return res.status(401).json({ message: "Користувача не знайдено або сесію завершено" })
+            return res.status(500).json({ message: "Користувача не знайдено або сесію завершено" })
         }
 
         const isTokenValid = await argon2.verify(user.refreshToken, oldRefreshToken)
         if (!isTokenValid) {
-            return res.status(403).json({ message: "Недійсний рефреш-токен" })
+            return res.status(500).json({ message: "Недійсний рефреш-токен" })
+        }
+        if (decoded.isStaff == undefined) {
+            const { newAccessToken, newRefreshToken, newHashedRefreshToken } = await getTokens(decoded.userEmail)
+            await prisma.user.update({
+                where: { email: decoded.userEmail },
+                data: { refreshToken: newHashedRefreshToken },
+            });
+
+            res.cookie('refreshToken', newRefreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000,
+            })
+            return res.status(200).json({ status: 200, accessToken: newAccessToken })
+        } else {
+            const { newAccessToken, newRefreshToken, newHashedRefreshToken } = await getTokensStaff(decoded.userEmail)
+
+            await prisma.eventStaff.update({
+                where: { name: decoded.userEmail },
+                data: { refreshToken: newHashedRefreshToken },
+            });
+            res.cookie('refreshToken', newRefreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000,
+            })
+            return res.status(200).json({ status: 200, accessToken: newAccessToken })
         }
 
-        const { newAccessToken, newRefreshToken, newHashedRefreshToken } = await getTokens(decoded.userEmail)
+    } catch (error: any) {
+        console.error(error)
+        return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })
+    }
+});
 
-        await prisma.user.update({
-            where: { email: decoded.userEmail },
+router.post('/staff', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const { login, password } = req.body;
+
+        const user = await prisma.eventStaff.findUnique({
+            where: { name: String(login) },
+        });
+        if (!user) {
+            return res.status(400).json({ status: 400, message: { message: "Не вірний логін або пароль" } });
+        }
+        const verifPass = user.passwordHash === password ? true : false;
+        if (!verifPass) {
+            return res.status(400).json({ status: 400, message: { message: "Не вірний логін або пароль" } });
+        }
+
+        const { newAccessToken, newRefreshToken, newHashedRefreshToken } = await getTokensStaff(user.name)
+
+        await prisma.eventStaff.update({
+            where: { name: user.name },
             data: { refreshToken: newHashedRefreshToken },
         });
 
@@ -168,13 +240,41 @@ router.post('/refresh', async (req: AuthenticatedRequest, res: Response) => {
             sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000,
         })
-
         return res.status(200).json({ status: 200, accessToken: newAccessToken })
-
     } catch (error: any) {
         console.error(error)
         return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })
     }
 });
+
+router.post('/logout', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const refreshToken = req.cookies.refreshToken;
+
+        if (refreshToken) {
+            await prisma.user.updateMany({
+                where: { refreshToken: refreshToken },
+                data: { refreshToken: '' },
+            });
+
+            await prisma.eventStaff.updateMany({
+                where: { refreshToken: refreshToken },
+                data: { refreshToken: '' },
+            });
+        }
+
+        res.clearCookie('refreshToken', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+        });
+
+        return res.status(200).json({ status: 200, message: 'Успішний вихід' });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" });
+    }
+});
+
 
 export default router;
