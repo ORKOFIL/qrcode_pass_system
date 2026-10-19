@@ -219,7 +219,7 @@ router.post('/staff', async (req: AuthenticatedRequest, res: Response) => {
         if (!user) {
             return res.status(400).json({ status: 400, message: { message: "Не вірний логін або пароль" } });
         }
-        const verifPass = user.passwordHash === password ? true : false;
+        const verifPass = argon2.verify(user.passwordHash, password)
         if (!verifPass) {
             return res.status(400).json({ status: 400, message: { message: "Не вірний логін або пароль" } });
         }

@@ -13,6 +13,9 @@ export const setMemoryAccessToken = (token: string | null) => {
     memoryAccessToken = token;
 };
 
+export const getMemoryAccessToken = () => {
+    return memoryAccessToken
+};
 
 // 2. REQUEST INTERCEPTOR: додаємо токен до кожного вихідного запиту
 api.interceptors.request.use((config) => {

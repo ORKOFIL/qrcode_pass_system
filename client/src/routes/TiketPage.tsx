@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { getMemoryAccessToken } from '../api/axios'
 import {
   Loader2,
   CheckCircle2,
@@ -19,6 +20,14 @@ interface TicketData {
   status: 'created' | 'issued' | 'activated';
 }
 
+function maskWords(str: string) {
+  if (!str) return '';
+  // \p{L} знаходить будь-яку літеру (включно з українськими)
+  return str.replace(/(\p{L})(\p{L}*)/gu, (match, first, rest) => {
+    return first + '*'.repeat(rest.length);
+  });
+}
+
 export function TicketValidation() {
   const { ticketId } = useParams<{ ticketId: string }>();
   const navigate = useNavigate();
@@ -28,6 +37,8 @@ export function TicketValidation() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isActivating, setIsActivating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [isRegistered, setIsRegistered] = useState<boolean>(false);
 
   // Додано відсутній стейт для сповіщень
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -44,14 +55,23 @@ export function TicketValidation() {
       try {
         setIsLoading(true);
         setError(null);
-        // Запит на бекенд для отримання даних про квиток
-        const response = await api.get(`/ticket/${ticketId}`);
-        console.log(response.data);
-        console.log(response.data.tiketInfo);
 
-        // Встановлюємо дані квитка
-        const ticketInfo = response.data.tiketInfo ? response.data.tiketInfo[0] : response.data;
-        setTicket(ticketInfo);
+        const response = await api.get(`/ticket/${ticketId}`);
+        console.log(response.data.tiketInfo[0]);
+
+        let ticketInfo = response.data.tiketInfo ? response.data.tiketInfo[0] : response.data;
+        try {
+          await api.get(`/isregistered`);
+          setTicket(ticketInfo);
+          setIsRegistered(true)
+        } catch (error) {
+          const initials = maskWords(ticketInfo.userInitials)
+          ticketInfo = { ...ticketInfo, userInitials: initials }
+          setTicket(ticketInfo);
+          setIsRegistered(false)
+        }
+
+        //setTicket(ticketInfo);
       } catch (err: any) {
         console.error('Помилка завантаження квитка:', err);
         setError(err.response?.data?.message || 'Квиток не знайдено або стався збій сервера');
@@ -168,8 +188,8 @@ export function TicketValidation() {
           {message && (
             <div
               className={`p-3 font-mono text-xs text-center border uppercase tracking-wider flex items-center justify-center space-x-2 ${message.type === 'success'
-                  ? 'border-black bg-black text-white'
-                  : 'border-red-600 bg-red-50 text-red-600'
+                ? 'border-black bg-black text-white'
+                : 'border-red-600 bg-red-50 text-red-600'
                 }`}
             >
               {message.type === 'success' ? (
@@ -213,7 +233,7 @@ export function TicketValidation() {
       </main>
 
       {/* SUBTLE FOOTER WITH LOGIN LINK */}
-      <footer className="w-full flex justify-center items-center pt-8 border-t border-neutral-200">
+      {!isRegistered &&<footer className="w-full flex justify-center items-center pt-8 border-t border-neutral-200">
         <button
           onClick={() => navigate('/auth/staff')}
           className="text-[11px] font-mono text-neutral-400 hover:text-black transition-colors uppercase tracking-widest flex items-center space-x-1.5 group py-1 cursor-pointer"
@@ -221,7 +241,7 @@ export function TicketValidation() {
           <LogIn className="w-3 h-3 group-hover:text-black" />
           <span>Логін персоналу</span>
         </button>
-      </footer>
+      </footer>}
     </div>
   );
 }

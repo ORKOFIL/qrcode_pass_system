@@ -102,7 +102,12 @@ app.get('/load/events', async (req: AuthenticatedRequest, res: Response) => {
             }
         })
 
-        return res.status(200).json({ status: 200, events: events, tikets: eventTikets, staff: eventScanners });
+        const updatedScanners = eventScanners.map(scanner => ({
+            ...scanner,
+            passwordHash: ''
+        }));
+
+        return res.status(200).json({ status: 200, events: events, tikets: eventTikets, staff: updatedScanners });
     } catch (error) {
         console.error(error)
         return res.status(500).json({ status: 500, message: "Внутрішня помилка сервера" })
@@ -120,7 +125,7 @@ app.post('/ticket/:ticketId/activate', async (req: AuthenticatedRequest, res: Re
             where: { id: String(ticketId) }
         })
         if (staff?.eventId === ticket?.eventId) {
-            if(ticket?.status=='activated'){
+            if (ticket?.status == 'activated') {
                 return res.status(409).json({ status: 409, message: "Квиток вже був активований раніше" })
             }
             await prisma.ticket.update({
@@ -137,6 +142,10 @@ app.post('/ticket/:ticketId/activate', async (req: AuthenticatedRequest, res: Re
     }
 })
 
+app.get('/isregistered', async (req: AuthenticatedRequest, res: Response) => {
+
+    return res.json({ status: 201, message: true });
+})
+
 app.listen(PORT, () => {
-    console.log(`Server is running at http://localhost:${PORT}`);
 });

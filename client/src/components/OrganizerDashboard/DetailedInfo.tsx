@@ -22,7 +22,7 @@ const handleCopyImage = async (imageUrl: string, e: React.MouseEvent) => {
         alert('Не вдалося скопіювати зображення в буфер обміну');
     }
 };
-export default function DetailedInfo({ activeTab, currentEvent, stats, currentEventQrList, handleGenerateMore, generateCount, setGenerateCount, handleDeleteEvent, searchQuery, setSearchQuery, filteredQrList, handleStatusChange, handleCreateScanners, scannersCount, setScannersCount, scannersList, handleDeleteScanner}: DetailedInfoProps) {
+export default function DetailedInfo({ activeTab, currentEvent, stats, currentEventQrList, handleGenerateMore, generateCount, setGenerateCount, handleDeleteEvent, searchQuery, setSearchQuery, filteredQrList, handleStatusChange, handleCreateScanners, scannersCount, setScannersCount, scannersList, handleDeleteScanner }: DetailedInfoProps) {
     return (
         <main className="w-full flex-1 p-8">
             {activeTab === 'dashboard' ? (
@@ -295,7 +295,24 @@ export default function DetailedInfo({ activeTab, currentEvent, stats, currentEv
                                             scannersList.filter(q => q.eventId === currentEvent.id).map((scanner) => (
                                                 <tr key={scanner.id} className="hover:bg-neutral-50 transition">
                                                     <td className="p-4 font-bold text-black">{scanner.name}</td>
-                                                    <td className="p-4 text-neutral-600 select-all">{scanner.passwordHash}</td>
+
+                                                    <td className="p-4">
+                                                        {scanner.passwordHash ? (
+                                                            <div className="flex items-center space-x-3">
+                                                                <span className="font-mono text-xs font-bold text-red-600 select-all bg-red-50 border border-red-200 px-2.5 py-1">
+                                                                    {scanner.passwordHash}
+                                                                </span>
+                                                                <span className="text-[10px] font-mono text-red-600 uppercase tracking-widest font-semibold whitespace-nowrap">
+                                                                    Зникне при ПЕРЕЗАВАНТАЖЕННІ СТОРІНКИ
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="font-mono text-xs text-neutral-400 tracking-widest uppercase">
+                                                                — ПРИХОВАНО —
+                                                            </span>
+                                                        )}
+                                                    </td>
+
                                                     <td className="p-4 text-right">
                                                         <button
                                                             onClick={() => handleDeleteScanner(scanner.id)}

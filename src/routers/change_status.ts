@@ -30,7 +30,7 @@ router.post('/issued/:id', async (req: AuthenticatedRequest, res: Response) => {
         const { fullname } = req.body
 
         const user = req.user?.userEmail
-        if(!check(String(user), String(id))){
+        if(!(await check(String(user), String(id)))){
             return res.status(403).json({ status: 403, message: "ID юзера не зходиться з ID власника івенту" })
         }
 
@@ -51,7 +51,7 @@ router.post('/:status/:id', async (req: AuthenticatedRequest, res: Response) => 
         const { status, id } = req.params;
 
         const user = req.user?.userEmail
-        if(!check(String(user), String(id))){
+        if(!(await check(String(user), String(id)))){
             return res.status(403).json({ status: 403, message: "ID юзера не зходиться з ID власника івенту" })
         }
 

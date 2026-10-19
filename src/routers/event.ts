@@ -120,16 +120,9 @@ router.post('/delete/:id', async (req: AuthenticatedRequest, res: Response) => {
         const userInfo = await prisma.user.findUnique({
             where: { email: String(user) }
         })
-        const ticketInfo = await prisma.ticket.findUnique({
+        const eventInfo = await prisma.event.findUnique({
             where: { id: String(id) }
         })
-        const eventInfo = await prisma.event.findUnique({
-            where: { id: String(ticketInfo?.eventId) }
-        })
-        if (userInfo?.id != eventInfo?.organiserId) {
-            return res.status(403).json({ status: 403, message: "ID юзера не зходиться з ID власника івенту" })
-        }
-
         if (userInfo?.id != eventInfo?.organiserId) {
             return res.status(403).json({ status: 403, message: "ID юзера не зходиться з ID власника івенту" })
         }
@@ -173,6 +166,7 @@ router.post('/:eventId/scanners/create', async (req: AuthenticatedRequest, res: 
         }
 
         const newScannersData = [];
+        const newScannersDataHashedPass = [];
         for (let i = 1; i <= Number(count); i++) {
             const staffName = `${event.name}-${i}${nanoid(5)}`;
             const newRefreshToken = jwt.sign(
@@ -182,19 +176,36 @@ router.post('/:eventId/scanners/create', async (req: AuthenticatedRequest, res: 
             );
             const newHashedRefreshToken = await argon2.hash(newRefreshToken)
 
+            const password = nanoid(5)
+            const passwordHash = await argon2.hash(password)
+
             newScannersData.push({
                 eventId: String(eventId),
                 name: staffName,
-                passwordHash: nanoid(10),
+                passwordHash: password,
+                refreshToken: newHashedRefreshToken
+            });
+            newScannersDataHashedPass.push({
+                eventId: String(eventId),
+                name: staffName,
+                passwordHash: passwordHash,
                 refreshToken: newHashedRefreshToken
             });
         }
 
         const ScannersData = await prisma.eventStaff.createManyAndReturn({
-            data: newScannersData
+            data: newScannersDataHashedPass
         });
 
-        return res.status(201).json({ scanners: ScannersData });
+        const mergedUsers = newScannersData.map(user => {
+            const foundExtra = ScannersData.find(item => item.name === user.name);
+            return {
+                ...user,
+                id: foundExtra?.id
+            };
+        });
+
+        return res.status(201).json({ scanners: mergedUsers });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: 'Помилка сервера' });
@@ -213,7 +224,7 @@ router.post('/scanner/delete/:scannerId', async (req: AuthenticatedRequest, res:
             where: { id: String(scannerId) }
         })
         const eventInfo = await prisma.event.findUnique({
-            where: { id: String(scannerInfo?.eventId)}
+            where: { id: String(scannerInfo?.eventId) }
         })
         if (userInfo?.id != eventInfo?.organiserId) {
             return res.status(403).json({ status: 403, message: "ID юзера не зходиться з ID власника івенту" })
