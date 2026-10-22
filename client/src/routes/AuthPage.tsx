@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowRight, CheckCircle2, Lock, Mail, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { setMemoryAccessToken } from '../api/axios';
+import { api, getMemoryAccessToken, setMemoryAccessToken } from '../api/axios';
 
 type AuthMode = 'login' | 'register';
 
@@ -17,6 +17,35 @@ export default function AuthPage() {
     // Стейт завантаження та помилок
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Перевірка сесії: якщо організатор уже авторизований — одразу на /dashboard
+    const [checkingSession, setCheckingSession] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const checkSession = async () => {
+            if (getMemoryAccessToken()) {
+                navigate('/dashboard', { replace: true });
+                return;
+            }
+            try {
+                const { data } = await api.post('/auth/refresh');
+                // Працівник (isStaff) не має доступу до панелі організатора
+                const payload = JSON.parse(atob(data.accessToken.split('.')[1]));
+                if (!cancelled && !payload.isStaff) {
+                    setMemoryAccessToken(data.accessToken);
+                    navigate('/dashboard', { replace: true });
+                    return;
+                }
+            } catch {
+            }
+            if (!cancelled) setCheckingSession(false);
+        };
+
+        checkSession();
+        return () => { cancelled = true; };
+    }, [navigate]);
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -51,6 +80,8 @@ export default function AuthPage() {
             setLoading(false);
         }
     };
+
+    if (checkingSession) return null;
 
     return (
         <div className="w-full min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white flex flex-col justify-between">

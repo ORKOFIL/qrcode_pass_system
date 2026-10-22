@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getMemoryAccessToken } from '../api/axios'
 import {
   Loader2,
   CheckCircle2,

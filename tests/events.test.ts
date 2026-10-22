@@ -88,12 +88,6 @@ describe('Events', () => {
         });
     });
 
-    describe('Редагування події', () => {
-        it.todo('редагування власної події → операція успішна');
-        it.todo('редагування чужої події → 403 Forbidden');
-        it.todo('організатор A не може змінити подію організатора B, навіть знаючи її ID');
-    });
-
     describe('POST /event/delete/:id', () => {
         it('видалення власної події → подія видалена', async () => {
             vi.mocked(prisma.event.delete).mockResolvedValue(eventOfA as any);

@@ -6,6 +6,7 @@ import { TicketValidation } from './routes/TiketPage';
 import { StaffLogin } from './routes/StaffAuth';
 import { StaffSuccessPage } from './routes/SuccessAuth';
 import { NotFoundPage } from './routes/NotFoundPage';
+import { LandingPage } from './routes/LandingPage';
 
 export default function App() {
     return (
@@ -13,6 +14,7 @@ export default function App() {
             <div className="min-h-screen text-gray-900">
                 <main >
                     <Routes>
+                        <Route path="/" element={<LandingPage />} />
                         <Route path="/dashboard" element={<OrganizerDashboard />} />
                         <Route path="/auth" element={<AuthPage />} />
                         <Route path="/:ticketId" element={<TicketValidation />} />
