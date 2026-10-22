@@ -1,0 +1,11 @@
+node_modules
+client
+tests
+generated
+qrcodes
+.git
+.env
+.claude
+.agents
+.windsurf
+*.md
