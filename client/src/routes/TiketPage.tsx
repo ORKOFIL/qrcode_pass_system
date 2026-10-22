@@ -20,14 +20,6 @@ interface TicketData {
   status: 'created' | 'issued' | 'activated';
 }
 
-function maskWords(str: string) {
-  if (!str) return '';
-  // \p{L} знаходить будь-яку літеру (включно з українськими)
-  return str.replace(/(\p{L})(\p{L}*)/gu, (match, first, rest) => {
-    return first + '*'.repeat(rest.length);
-  });
-}
-
 export function TicketValidation() {
   const { ticketId } = useParams<{ ticketId: string }>();
   const navigate = useNavigate();
@@ -57,21 +49,9 @@ export function TicketValidation() {
         setError(null);
 
         const response = await api.get(`/ticket/${ticketId}`);
-        console.log(response.data.tiketInfo[0]);
 
-        let ticketInfo = response.data.tiketInfo ? response.data.tiketInfo[0] : response.data;
-        try {
-          await api.get(`/isregistered`);
-          setTicket(ticketInfo);
-          setIsRegistered(true)
-        } catch (error) {
-          const initials = maskWords(ticketInfo.userInitials)
-          ticketInfo = { ...ticketInfo, userInitials: initials }
-          setTicket(ticketInfo);
-          setIsRegistered(false)
-        }
-
-        //setTicket(ticketInfo);
+        setTicket(response.data.tiketInfo[0]);
+        setIsRegistered(response.data.isRegistered)
       } catch (err: any) {
         console.error('Помилка завантаження квитка:', err);
         setError(err.response?.data?.message || 'Квиток не знайдено або стався збій сервера');
@@ -233,7 +213,7 @@ export function TicketValidation() {
       </main>
 
       {/* SUBTLE FOOTER WITH LOGIN LINK */}
-      {!isRegistered &&<footer className="w-full flex justify-center items-center pt-8 border-t border-neutral-200">
+      {!isRegistered && <footer className="w-full flex justify-center items-center pt-8 border-t border-neutral-200">
         <button
           onClick={() => navigate('/auth/staff')}
           className="text-[11px] font-mono text-neutral-400 hover:text-black transition-colors uppercase tracking-widest flex items-center space-x-1.5 group py-1 cursor-pointer"

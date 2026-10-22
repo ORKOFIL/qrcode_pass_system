@@ -14,7 +14,7 @@ interface AuthenticatedRequest extends Request {
     user?: { userEmail: string };
 }
 
-async function generateQRCodes(links: string[], eventId: string) {
+async function generateQRCodes(links: string[], eventId: string, frontendOrigin: string) {
 
     const outputDir = path.join(process.cwd(), 'qrcodes', eventId);
 
@@ -24,9 +24,8 @@ async function generateQRCodes(links: string[], eventId: string) {
 
     for (const item of links) {
         const filePath = path.join(outputDir, `${item}.png`);
-
         try {
-            await QRCode.toFile(filePath, `http://localhost:5173/${item}`, {
+            await QRCode.toFile(filePath, `${frontendOrigin}/${item}`, {
                 errorCorrectionLevel: 'H',
                 type: 'png',
                 margin: 2,
@@ -98,7 +97,8 @@ router.post('/create/qrcodes', async (req: AuthenticatedRequest, res: Response) 
         const qrcodes = await prisma.ticket.createManyAndReturn({
             data: generatedQrs
         });
-        await generateQRCodes(qrcodes.map(item => item.id), id)
+        const frontendOrigin = (req.headers.origin as string) || process.env.FRONTEND_URL || 'http://localhost:5173';
+        await generateQRCodes(qrcodes.map(item => item.id), id, frontendOrigin)
         if (addon == true) {
             await prisma.event.update({
                 where: { id: id },

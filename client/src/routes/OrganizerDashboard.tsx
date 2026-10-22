@@ -43,7 +43,6 @@ export default function OrganizerDashboard() {
 
   const handleCreateScanners = async (e: FormEvent) => {
     e.preventDefault();
-
     try {
       const res = await api.post(`/event/${currentEvent?.id}/scanners/create`, { count: scannersCount })
       setScannersList([...scannersList, ...res.data.scanners])

@@ -47,7 +47,7 @@ async function getTokensStaff(email: String) {
     const newRefreshToken = jwt.sign(
         { userEmail: email, isStaff: true },
         process.env.JWT_REFRESH_SECRET!,
-        { expiresIn: '7d' }
+        { expiresIn: '1d' }
     );
     const newHashedRefreshToken = await argon2.hash(newRefreshToken)
     return { newAccessToken, newRefreshToken, newHashedRefreshToken }
@@ -219,7 +219,7 @@ router.post('/staff', async (req: AuthenticatedRequest, res: Response) => {
         if (!user) {
             return res.status(400).json({ status: 400, message: { message: "Не вірний логін або пароль" } });
         }
-        const verifPass = argon2.verify(user.passwordHash, password)
+        const verifPass = await argon2.verify(user.passwordHash, password)
         if (!verifPass) {
             return res.status(400).json({ status: 400, message: { message: "Не вірний логін або пароль" } });
         }
