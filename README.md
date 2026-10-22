@@ -29,6 +29,7 @@ EntryPass — вебзастосунок для створення та керу
 | Тестування | Vitest, Supertest |
 | Контейнеризація | Docker, Docker Compose |
 
+## SCREENSHOTS
 ## Frontend
 
 SPA на **React + TypeScript** (збірка Vite), стилізація Tailwind CSS. Access-токен зберігається лише в пам'яті, refresh-токен — в `HttpOnly`-куці; при `401` Axios-інтерцептор автоматично оновлює сесію.
@@ -36,6 +37,7 @@ SPA на **React + TypeScript** (збірка Vite), стилізація Tailwi
 | Маршрут | Сторінка |
 |---|---|
 | `/` | Лендінг: опис системи та вибір входу (організатор / працівник) |
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/a0cd6849-feab-4769-a40a-a837c8f9e14c" />
 | `/auth` | Вхід і реєстрація організатора (авторизованого одразу переносить на `/dashboard`) |
 | `/dashboard` | Панель організатора: події, генерація й видача QR-квитків, керування контролерами |
 | `/auth/staff` | Вхід контролера за логіном і паролем від організатора |
