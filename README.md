@@ -38,11 +38,35 @@ SPA на **React + TypeScript** (збірка Vite), стилізація Tailwi
 |---|---|
 | `/` | Лендінг: опис системи та вибір входу (організатор / працівник) |
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/a0cd6849-feab-4769-a40a-a837c8f9e14c" />
+
+| Маршрут | Сторінка |
+|---|---|
 | `/auth` | Вхід і реєстрація організатора (авторизованого одразу переносить на `/dashboard`) |
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/726a8b38-aa84-41a1-8ec1-7158c64e9531" />
+
+| Маршрут | Сторінка |
+|---|---|
 | `/dashboard` | Панель організатора: події, генерація й видача QR-квитків, керування контролерами |
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/b9b608c8-4626-4989-95f2-dc50217621a4" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/bf74244f-c133-4795-8094-55be2defa3c8" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/6f9adfa0-0c62-44fb-bd4f-543a997af2cf" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/8c63758e-4ace-44f8-97b8-aef9cda82239" />
+
+| Маршрут | Сторінка |
+|---|---|
 | `/auth/staff` | Вхід контролера за логіном і паролем від організатора |
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/f3c6e8d8-fd0f-4a10-bcb7-de9e81dfde89" />
+
+| Маршрут | Сторінка |
+|---|---|
 | `/auth/staff/success` | Підтвердження входу контролера |
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/53619a36-b572-4755-a059-c66ba4adac4d" />
+
+| Маршрут | Сторінка |
+|---|---|
 | `/:ticketId` | Сторінка квитка (за QR): ПІБ замасковано, повні дані бачить лише контролер цієї події; тут контролер підтверджує вхід |
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/3c1704c1-c71b-47a3-a159-870ccf1cc630" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/043f0003-2758-43d7-a1fe-8125308c5aa8" />
 
 ## Як це працює
 
