@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import { prisma } from '../lib/prisma.ts';
-import { v4 as uuidv4 } from 'uuid';
 import * as QRCode from 'qrcode';
 import fs from 'fs';
+import { randomUUID } from 'crypto';
 import path from 'path';
 import argon2 from 'argon2';
 import { nanoid } from 'nanoid';
@@ -90,7 +90,7 @@ router.post('/create/qrcodes', async (req: AuthenticatedRequest, res: Response) 
         }
 
         const generatedQrs = Array.from({ length: capacity }, () => ({
-            id: uuidv4(),
+            id: randomUUID(),
             eventId: id,
             userInitials: '',
         }));

@@ -10,7 +10,7 @@ vi.mock('../src/lib/prisma.ts', () => ({
     },
 }));
 
-vi.mock('@prisma/client', () => ({
+vi.mock('../generated/prisma/client.ts', () => ({
     Prisma: { PrismaClientKnownRequestError: class extends Error {} },
     PrismaClient: class {},
 }));

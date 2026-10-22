@@ -6,9 +6,9 @@ COPY package*.json ./
 RUN npm ci
 
 COPY prisma ./prisma
-COPY prisma7.config.ts ./
+COPY prisma.config.ts ./
 # generate не підключається до БД, але конфіг читає DATABASE_URL
-RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma generate --config prisma7.config.ts
+RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma generate
 
 COPY tsconfig.json ./
 COPY src ./src

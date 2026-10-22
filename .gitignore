@@ -3,3 +3,15 @@ node_modules
 .env
 
 /generated/prisma
+
+# AI-інструменти (локальні skills)
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
+
+# Згенерований Prisma-клієнт, QR-зображення та збірки
+/generated/
+/qrcodes/
+dist/
+node_modules/

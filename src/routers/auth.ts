@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma.ts';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import z from 'zod';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client.ts';
 
 const router = Router();
 

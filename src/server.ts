@@ -5,7 +5,7 @@ import cors from 'cors';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import z, { string } from 'zod';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../generated/prisma/client.ts';
 import authRouter from './routers/auth.ts'
 import eventRouter from './routers/event.ts'
 import changeStatusRouter from './routers/change_status.ts'
