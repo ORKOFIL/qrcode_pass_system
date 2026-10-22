@@ -149,15 +149,6 @@ cd client
 npm run dev                 # frontend на http://localhost:5173
 ```
 
-## Docker-образ backend
-
-```bash
-docker build -t entrypass-api .
-docker run --rm -p 3000:3000 --env-file .env entrypass-api
-```
-
-Усередині Docker-мережі `DATABASE_URL` має вказувати на хост бази (не `127.0.0.1`). Папку `qrcodes` варто змонтувати як volume, інакше згенеровані зображення зникнуть разом із контейнером.
-
 ## API
 
 Базовий URL: `http://localhost:3000`. Усі тіла запитів і відповідей — JSON. Захищені маршрути потребують заголовка `Authorization: Bearer <accessToken>`; refresh-токен передається в `HttpOnly`-куці `refreshToken`.
